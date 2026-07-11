@@ -1,0 +1,6 @@
+{
+  "name": "Vaakai Customer Support Hub",
+  "description": "A modern AI-powered customer support chatbot named Vaakai, featuring 2FA login, session analytics, user feedback dashboard, dark mode toggle, and multi-language capabilities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

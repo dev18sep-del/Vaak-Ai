@@ -1,0 +1,188 @@
+{
+  "users": [
+    {
+      "id": "u1",
+      "name": "Alex Sterling",
+      "email": "alex@company.com",
+      "passwordHash": "password123",
+      "otpSecret": "VA2FASECRETKEY",
+      "createdAt": "2026-06-11T03:45:35.171Z"
+    },
+    {
+      "id": "user-gky9net",
+      "name": "Dev Patel",
+      "email": "dev18sep@gmail.com",
+      "passwordHash": "dev@1809",
+      "otpSecret": "SEC8VCIG",
+      "createdAt": "2026-07-11T03:48:33.169Z"
+    },
+    {
+      "id": "usr-1783743394999",
+      "name": "Google User",
+      "email": "user@google.com",
+      "passwordHash": "oauth-managed-1783743394999",
+      "otpSecret": "oauth-managed"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "session-101",
+      "userId": "u1",
+      "userName": "Alex Sterling",
+      "language": "en",
+      "createdAt": "2026-07-09T03:45:35.172Z",
+      "messages": [
+        {
+          "role": "user",
+          "text": "Hi, I have a question about my invoice.",
+          "timestamp": "2026-07-09T03:45:35.172Z"
+        },
+        {
+          "role": "model",
+          "text": "Hello Alex! I am Vaakai, your customer support assistant. I would be happy to help with your invoice. Could you please provide the invoice number or order ID?",
+          "timestamp": "2026-07-09T03:46:05.172Z"
+        },
+        {
+          "role": "user",
+          "text": "It's INV-2026-078. It charges me $120 instead of $99.",
+          "timestamp": "2026-07-09T03:46:35.172Z"
+        },
+        {
+          "role": "model",
+          "text": "Thank you for the details. I have checked INV-2026-078. It looks like the system applied a temporary storage overage charge of $21. Let me waive that overage charge and issue a credit refund of $21 back to your account immediately. You should see it within 2 business days!",
+          "timestamp": "2026-07-09T03:47:05.172Z"
+        },
+        {
+          "role": "user",
+          "text": "Perfect! Thanks for the quick resolution.",
+          "timestamp": "2026-07-09T03:47:35.172Z"
+        }
+      ],
+      "feedback": {
+        "rating": 5,
+        "comment": "Excellent support! The waiver was issued immediately.",
+        "category": "Billing",
+        "createdAt": "2026-07-09T03:48:05.172Z"
+      }
+    },
+    {
+      "id": "session-102",
+      "userId": "u1",
+      "userName": "Alex Sterling",
+      "language": "en",
+      "createdAt": "2026-07-10T03:45:35.172Z",
+      "messages": [
+        {
+          "role": "user",
+          "text": "How do I configure the API client for production use?",
+          "timestamp": "2026-07-10T03:45:35.172Z"
+        },
+        {
+          "role": "model",
+          "text": "Welcome back! To configure your API client in production, please make sure you use your server-side secret API keys, restrict browser network access, declare your environmental secrets securely in your platform container settings, and utilize our server-side token relay routes to keep keys hidden.",
+          "timestamp": "2026-07-10T03:46:20.172Z"
+        },
+        {
+          "role": "user",
+          "text": "Got it, that helps.",
+          "timestamp": "2026-07-10T03:47:05.172Z"
+        }
+      ],
+      "feedback": {
+        "rating": 4,
+        "comment": "Very informative technical support response.",
+        "category": "Technical",
+        "createdAt": "2026-07-10T03:47:15.172Z"
+      }
+    },
+    {
+      "id": "session-103",
+      "userId": "u1",
+      "userName": "Alex Sterling",
+      "language": "es",
+      "createdAt": "2026-07-10T15:45:35.172Z",
+      "messages": [
+        {
+          "role": "user",
+          "text": "¿Tienen algún descuento para planes anuales?",
+          "timestamp": "2026-07-10T15:45:35.172Z"
+        },
+        {
+          "role": "model",
+          "text": "¡Hola! Sí, ofrecemos un descuento del 20% en todos nuestros planes si se suscribe al ciclo de facturación anual. ¿Le gustaría que le guíe sobre cómo actualizar su suscripción en la pestaña de configuración?",
+          "timestamp": "2026-07-10T15:45:55.172Z"
+        },
+        {
+          "role": "user",
+          "text": "Sí, por favor.",
+          "timestamp": "2026-07-10T15:46:15.172Z"
+        }
+      ],
+      "feedback": {
+        "rating": 5,
+        "comment": "Gran atención al cliente, rápida y en mi idioma.",
+        "category": "Sales",
+        "createdAt": "2026-07-10T15:46:35.172Z"
+      }
+    },
+    {
+      "id": "session-104",
+      "userId": "u1",
+      "userName": "Alex Sterling",
+      "language": "en",
+      "createdAt": "2026-07-11T01:45:35.172Z",
+      "messages": [
+        {
+          "role": "user",
+          "text": "I can't access my profile settings. It shows loading.",
+          "timestamp": "2026-07-11T01:45:35.172Z"
+        },
+        {
+          "role": "model",
+          "text": "I'm sorry to hear that. This can occur due to a cached authorization token. Please try logging out and logging back in with your 2-step verification code, or clear your browser local storage. Let me know if that resolves the issue!",
+          "timestamp": "2026-07-11T01:46:05.172Z"
+        },
+        {
+          "role": "user",
+          "text": "Let me check... ah clearing local cache fixed it. Thanks.",
+          "timestamp": "2026-07-11T01:46:35.172Z"
+        }
+      ],
+      "feedback": {
+        "rating": 3,
+        "comment": "Support helped resolve it, but the app should handle cache invalidation better.",
+        "category": "Technical",
+        "createdAt": "2026-07-11T01:47:05.172Z"
+      }
+    },
+    {
+      "id": "session-oub31ff2h9",
+      "userId": "user-gky9net",
+      "userName": "Dev Patel",
+      "language": "en",
+      "messages": [
+        {
+          "role": "user",
+          "text": "what is llm",
+          "timestamp": "2026-07-11T03:52:36.441Z"
+        },
+        {
+          "role": "model",
+          "text": "An LLM, or **Large Language Model**, is a type of artificial intelligence trained on vast datasets of text. It is designed to understand, process, and generate human-like language, code, and reasoning. \n\nAt Aether AI, we leverage LLMs to power our advanced automation and conversational APIs. Developers typically integrate these models into their applications using Node.js, configuring them securely via environment variables to handle tasks like customer support, content generation, and data analysis.\n\nAre you looking to integrate an LLM API into your current project, or did you have a specific technical question about setting one up?",
+          "timestamp": "2026-07-11T03:52:44.082Z"
+        },
+        {
+          "role": "user",
+          "text": "why use llm",
+          "timestamp": "2026-07-11T03:56:50.495Z"
+        },
+        {
+          "role": "model",
+          "text": "Businesses and developers use LLMs because they dramatically increase efficiency, lower operational costs, and scale capabilities that previously required manual human effort. \n\nHere are the primary reasons to use an LLM:\n\n1. **24/7 Intelligent Automation:** Unlike rigid, rule-based systems, LLMs understand context, intent, and nuance. They can handle complex customer support, draft content, and summarize documents instantly.\n2. **Seamless Technical Integration:** You can easily connect LLMs to your existing software stack. For example, using Aether AI’s APIs, you can integrate LLM capabilities into a Node.js application with just a few lines of code and an environment variable (`API_KEY`).\n3. **Massive Scalability:** An LLM can handle thousands of queries simultaneously, ensuring your service remains responsive during traffic spikes without needing to scale up a human support team.\n4. **Data Extraction & Translation:** They excel at transforming unstructured data into structured formats (like JSON) and translating languages in real-time.\n\nAre you considering an LLM for customer support automation, or are you looking to integrate one into your backend infrastructure? I can guide you through our service plans or the technical API setup.",
+          "timestamp": "2026-07-11T03:57:20.136Z"
+        }
+      ],
+      "createdAt": "2026-07-11T03:52:36.441Z"
+    }
+  ]
+}
