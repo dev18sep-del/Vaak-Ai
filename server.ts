@@ -1,6 +1,7 @@
 import express from "express";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
+import Groq from "groq-sdk";
 import { createServer as createViteServer } from "vite";
 import pathNode from "path";
 
@@ -195,6 +196,17 @@ function getGeminiClient(): GoogleGenAI | null {
     }
   }
   return ai;
+}
+
+let groq: Groq | null = null;
+function getGroqClient(): Groq | null {
+  if (!groq) {
+    const key = process.env.GROQ_API_KEY;
+    if (key && key !== "MY_GROQ_API_KEY" && key !== "") {
+      groq = new Groq({ apiKey: key });
+    }
+  }
+  return groq;
 }
 
 // Helper to authenticate requests using header
@@ -419,13 +431,70 @@ CRITICAL INSTRUCTIONS FOR ANSWER FORMATTING:
 - Ensure the tone is highly professional, empathetic, and designed to fully satisfy the user's needs.
 - Provide actionable advice, examples (e.g., code snippets if technical), and thorough explanations.`;
 
+
   let responseText = "";
 
-  // Call Gemini API if available, otherwise use a smart deterministic mock for tests & offline resiliency
+  const groq = getGroqClient();
   const gemini = getGeminiClient();
-  if (gemini) {
+
+  if (groq) {
     try {
-      // Build context history for Gemini chat (supporting multimodality)
+      const messages = [];
+      messages.push({ role: "system", content: systemInstruction });
+      
+      let hasImage = false;
+      for (const m of session.messages) {
+        if (m.attachment && m.attachment.dataUrl) {
+          if (m.attachment.type.startsWith("image/")) {
+             hasImage = true;
+             messages.push({
+               role: m.role === "model" ? "assistant" : "user",
+               content: [
+                 { type: "text", text: m.text || "Attached image:" },
+                 { type: "image_url", image_url: { url: m.attachment.dataUrl } }
+               ]
+             });
+          } else if (m.attachment.type.startsWith("text/") || m.attachment.type.includes("json")) {
+             const commaIdx = m.attachment.dataUrl.indexOf(",");
+             const base64Data = commaIdx > -1 ? m.attachment.dataUrl.substring(commaIdx + 1) : m.attachment.dataUrl;
+             try {
+                const textContent = Buffer.from(base64Data, "base64").toString("utf8");
+                messages.push({
+                  role: m.role === "model" ? "assistant" : "user",
+                  content: `[Attached Document: ${m.attachment.name}]\n${textContent}\n[End of Document]\n${m.text}`
+                });
+             } catch (e) {
+                messages.push({ role: m.role === "model" ? "assistant" : "user", content: m.text });
+             }
+          } else {
+             messages.push({ role: m.role === "model" ? "assistant" : "user", content: `[Attached File: ${m.attachment.name}]\n${m.text}` });
+          }
+        } else {
+          messages.push({ role: m.role === "model" ? "assistant" : "user", content: m.text });
+        }
+      }
+
+      const model = hasImage ? "llama-3.2-90b-vision-preview" : "llama-3.1-8b-instant";
+      
+      const completion = await groq.chat.completions.create({
+        messages: messages,
+        model: model,
+        temperature: 0.7,
+      });
+
+      responseText = completion.choices[0]?.message?.content || "I apologize, I could not generate a response.";
+    } catch (groqError) {
+      console.error("Groq API error:", groqError);
+      // Fallback to offline if Groq fails and Gemini isn't available
+      if (!gemini) {
+        responseText = getFallbackSupportResponse(message || "", currentLang);
+      }
+    }
+  }
+
+  // If Groq wasn't used or failed, and Gemini is available, fallback to Gemini
+  if (!responseText && gemini) {
+    try {
       const formattedContents = session.messages.map(m => {
         const parts: any[] = [];
         if (m.attachment && m.attachment.dataUrl) {
@@ -441,7 +510,9 @@ CRITICAL INSTRUCTIONS FOR ANSWER FORMATTING:
           } else if (m.attachment.type.startsWith("text/") || m.attachment.type.includes("json")) {
             try {
               const textContent = Buffer.from(base64Data, "base64").toString("utf8");
-              parts.push({ text: `[Attached Document: ${m.attachment.name}]\n${textContent}\n[End of Document]` });
+              parts.push({ text: `[Attached Document: ${m.attachment.name}]
+${textContent}
+[End of Document]` });
             } catch (e) {
               parts.push({ text: `[Attached Document: ${m.attachment.name} (binary contents)]` });
             }
@@ -456,82 +527,25 @@ CRITICAL INSTRUCTIONS FOR ANSWER FORMATTING:
         };
       });
 
-      let apiResponse;
-      let retries = 2;
-      while (retries >= 0) {
-        try {
-          apiResponse = await gemini.models.generateContent({
-            model: "gemini-3.5-flash",
-            contents: formattedContents,
-            config: {
-              systemInstruction,
-              temperature: 0.7,
-            }
-          });
-          break;
-        } catch (err: any) {
-          if (retries > 0 && (err.status === 503 || err.status === 429 || String(err.message).includes("503") || String(err.message).includes("demand"))) {
-            console.log(`Model temporarily busy, retrying... (${retries} attempts left)`);
-            retries--;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          } else {
-            throw err;
-          }
+      const apiResponse = await gemini.models.generateContent({
+        model: "gemini-3.1-flash-lite",
+        contents: formattedContents,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
         }
-      }
+      });
       responseText = apiResponse?.text || "I apologize, I processed your query but could not extract a message. Let me review that for you.";
     } catch (apiError: any) {
-      console.log("Primary model (gemini-3.5-flash) failed or returned error. Retrying with ultra-available fallback model (gemini-3.1-flash-lite)...");
-      try {
-        // Build fallback formatted content using same structure
-        const formattedFallbackContents = session.messages.map(m => {
-          const parts: any[] = [];
-          if (m.attachment && m.attachment.dataUrl) {
-            const commaIdx = m.attachment.dataUrl.indexOf(",");
-            const base64Data = commaIdx > -1 ? m.attachment.dataUrl.substring(commaIdx + 1) : m.attachment.dataUrl;
-            if (m.attachment.type.startsWith("image/")) {
-              parts.push({
-                inlineData: {
-                  mimeType: m.attachment.type,
-                  data: base64Data
-                }
-              });
-            } else if (m.attachment.type.startsWith("text/") || m.attachment.type.includes("json")) {
-              try {
-                const textContent = Buffer.from(base64Data, "base64").toString("utf8");
-                parts.push({ text: `[Attached Document: ${m.attachment.name}]\n${textContent}\n[End of Document]` });
-              } catch (e) {
-                parts.push({ text: `[Attached Document: ${m.attachment.name}]` });
-              }
-            } else {
-              parts.push({ text: `[Attached File: ${m.attachment.name}]` });
-            }
-          }
-          parts.push({ text: m.text });
-          return {
-            role: m.role,
-            parts: parts
-          };
-        });
-
-        const fallbackResponse = await gemini.models.generateContent({
-          model: "gemini-3.1-flash-lite",
-          contents: formattedFallbackContents,
-          config: {
-            systemInstruction,
-            temperature: 0.7,
-          }
-        });
-        responseText = fallbackResponse?.text || "I apologize, I processed your query but could not extract a message. Let me review that for you.";
-      } catch (fallbackError: any) {
-        console.log("Notice: Both models failed or are unavailable. Switched to localized assistant mode for chat processing.");
-        responseText = getFallbackSupportResponse(message || "", currentLang);
-      }
+      console.log("Both Groq and Gemini failed. Switched to localized assistant mode for chat processing.", apiError);
+      responseText = getFallbackSupportResponse(message || "", currentLang);
     }
-  } else {
-    // Elegant system fallback reply (when GEMINI_API_KEY is missing or invalid)
+  }
+
+  if (!responseText) {
     responseText = getFallbackSupportResponse(message || "", currentLang);
   }
+
 
   const modelMsg: Message = {
     role: "model",
@@ -638,6 +652,7 @@ app.post("/api/feedback", authenticate, (req, res) => {
   res.json({ message: "Feedback submitted successfully.", session });
 });
 
+
 // DEVCONSOLE API DIAGNOSE
 app.post("/api/diagnose", authenticate, async (req, res) => {
   const { code, errorText, language } = req.body;
@@ -646,10 +661,7 @@ app.post("/api/diagnose", authenticate, async (req, res) => {
     return res.status(400).json({ error: "Code and errorText are required." });
   }
 
-  const aiClient = getGeminiClient();
-  if (aiClient) {
-    try {
-      const prompt = `
+  const prompt = `
 You are an expert developer assistant. The user has encountered an error in their ${language || "code"}.
 Code:
 \`\`\`
@@ -672,8 +684,32 @@ Provide a JSON response with the following strictly formatted keys:
 
 Return ONLY a valid JSON object. Do not include markdown \`\`\`json wrappers.
 `;
-      const result = await aiClient.models.generateContent({
-        model: "gemini-3.5-flash",
+
+  const groq = getGroqClient();
+  const gemini = getGeminiClient();
+
+  if (groq) {
+    try {
+      const completion = await groq.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        model: "llama-3.1-8b-instant",
+        temperature: 0.1,
+        response_format: { type: "json_object" }
+      });
+
+      const text = completion.choices[0]?.message?.content || "{}";
+      const parsed = JSON.parse(text);
+      return res.json(parsed);
+    } catch (err) {
+      console.error("Groq API error during diagnose:", err);
+      // Fallback
+    }
+  }
+
+  if (gemini) {
+    try {
+      const result = await gemini.models.generateContent({
+        model: "gemini-3.1-flash-lite",
         contents: prompt
       });
 
@@ -684,7 +720,6 @@ Return ONLY a valid JSON object. Do not include markdown \`\`\`json wrappers.
         parsed = JSON.parse(cleanText);
       } catch (e) {
         console.error("Failed to parse Gemini output:", text);
-        // Fallback
         parsed = {
           rootCause: "Unable to parse AI response. " + text,
           conceptTag: "parse-error",
@@ -694,11 +729,9 @@ Return ONLY a valid JSON object. Do not include markdown \`\`\`json wrappers.
           quiz: { question: "What happened?", options: ["Parse error", "Success"], answer: "Parse error" }
         };
       }
-      
       return res.json(parsed);
     } catch (err) {
       console.error("Gemini API error during diagnose:", err);
-      // Fallback below if error
     }
   }
 
@@ -706,7 +739,7 @@ Return ONLY a valid JSON object. Do not include markdown \`\`\`json wrappers.
   return res.json({
     rootCause: "This is a simulated diagnosis. The variable was not defined before usage.",
     conceptTag: "ReferenceError",
-    fix: "let x = 10;\nconsole.log(x);",
+    fix: "let x = 10;\\nconsole.log(x);",
     whyItWorks: "Declaring the variable ensures it is allocated in memory before it is referenced.",
     confidence: "high",
     quiz: {
@@ -720,8 +753,6 @@ Return ONLY a valid JSON object. Do not include markdown \`\`\`json wrappers.
     }
   });
 });
-
-
 // ANALYTICS & METRICS DASHBOARD
 app.get("/api/analytics", authenticate, (req, res) => {
   const db = loadDB();
@@ -819,7 +850,7 @@ app.get("/api-docs", (req, res) => {
           info: {
             title: "Vaakai Customer Support AI - REST APIs",
             version: "1.0.0",
-            description: "Secure, fully unit-tested support bot API powered by Express and Google Gemini AI model (gemini-3.5-flash). Enforces standard password verification followed by 2-step verification (2FA)."
+            description: "Secure, fully unit-tested support bot API powered by Express and Google Gemini AI model (gemini-3.1-flash-lite). Enforces standard password verification followed by 2-step verification (2FA)."
           },
           servers: [
             {
