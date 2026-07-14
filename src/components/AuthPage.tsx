@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Shield, KeyRound, Mail, User, ArrowRight, Lock, Sparkles, Languages } from "lucide-react";
+import { VaakaiLogo } from "./VaakaiLogo";
 import { auth } from "../lib/firebase";
 import { signInWithPopup, GoogleAuthProvider, OAuthProvider } from "firebase/auth";
 
@@ -157,7 +158,7 @@ export default function AuthPage({ onLoginSuccess, isDark }: AuthPageProps) {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDark ? "bg-[#0F172A]" : "bg-slate-50"}`}>
+    <div className={`min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-300 ${isDark ? "bg-[#0F172A]" : "bg-slate-50"}`}>
       {/* Decorative ambient glowing grids */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className={`absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[120px] opacity-20 ${isDark ? "bg-indigo-600" : "bg-indigo-300"}`} />
@@ -171,7 +172,7 @@ export default function AuthPage({ onLoginSuccess, isDark }: AuthPageProps) {
         {/* Brand Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center p-3 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white mb-3 shadow-lg shadow-indigo-500/20">
-            <Shield className="w-8 h-8" />
+            <VaakaiLogo className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-indigo-500 to-cyan-400 bg-clip-text text-transparent">
             VAAKAI

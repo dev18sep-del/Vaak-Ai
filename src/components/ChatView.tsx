@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Send, Sparkles, MessageCircle, Star, ThumbsUp, HelpCircle, CheckCircle, Flame, MessageSquareText, ShieldAlert, Cpu, Paperclip, X, Image, FileText, Upload } from "lucide-react";
+import { VaakaiLogo } from "./VaakaiLogo";
 import { motion, AnimatePresence } from "motion/react";
 import { ChatSession, Message, SUPPORTED_LANGUAGES, User, Attachment } from "../types";
 
@@ -288,8 +289,8 @@ export default function ChatView({
               className="max-w-xl mx-auto mt-8 text-center space-y-5"
               id="empty-chat-welcome"
             >
-              <div className="inline-flex p-3 rounded-full bg-indigo-600 text-white shadow-xl shadow-indigo-600/15">
-                <Sparkles className="w-6 h-6 animate-pulse" />
+              <div className="inline-flex p-3 rounded-full bg-indigo-600/10 border border-indigo-500/20 shadow-xl shadow-indigo-600/5">
+                <VaakaiLogo className="w-8 h-8" />
               </div>
               <div className="space-y-2">
                 <h2 className={`text-2xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-800"}`}>

@@ -1,5 +1,6 @@
 import React from "react";
-import { MessageSquarePlus, Compass, BarChart3, Settings, Moon, Sun, LogOut, MessageSquareCode, ShieldAlert, Sparkles, ChevronLeft } from "lucide-react";
+import { MessageSquarePlus, Compass, BarChart3, Settings, Moon, Sun, LogOut, ShieldAlert, Sparkles, ChevronLeft } from "lucide-react";
+import { VaakaiLogo } from "./VaakaiLogo";
 import { ActiveTab, ChatSession, Language, SUPPORTED_LANGUAGES, User } from "../types";
 
 interface SidebarProps {
@@ -49,10 +50,10 @@ export default function Sidebar({
       <div className="p-4 border-b flex items-center justify-between border-slate-800/10 dark:border-slate-800/50">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-            <MessageSquareCode className="w-5 h-5" />
+            <VaakaiLogo className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="font-bold text-sm tracking-wide text-white uppercase">VAAKAI AI</h2>
+            <h2 className="font-bold text-sm tracking-wide text-white uppercase">VAAKAI</h2>
             <p className="text-[10px] text-slate-400 font-mono">Real-time Support</p>
           </div>
         </div>
@@ -128,7 +129,7 @@ export default function Sidebar({
             id="tab-btn-chat"
           >
             <div className="flex items-center gap-2.5">
-              <MessageSquareCode className="w-4 h-4" />
+              <VaakaiLogo className="w-4 h-4" />
               <span>Vaakai Customer Chat</span>
             </div>
             <span className="bg-emerald-500/25 text-emerald-400 text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold uppercase">LIVE</span>
@@ -200,6 +201,8 @@ export default function Sidebar({
               sessions.map((session, idx) => {
                 const isSelected = activeSessionId === session.id;
                 const feedbackRating = session.feedback?.rating;
+                const firstUserMsg = session.messages.find(m => m.role === "user")?.text;
+                const topic = firstUserMsg ? firstUserMsg : session.id.replace("session-", "SESS-");
                 const lastMsg = session.messages[session.messages.length - 1]?.text || "New support channel";
                 
                 return (
@@ -216,8 +219,8 @@ export default function Sidebar({
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-semibold text-slate-200 truncate max-w-[120px]">
-                        {session.id.replace("session-", "SESS-")}
+                      <span className="text-[11px] font-semibold text-slate-200 truncate max-w-[120px]" title={topic}>
+                        {topic}
                       </span>
                       <div className="flex items-center gap-1.5">
                         {feedbackRating && (
