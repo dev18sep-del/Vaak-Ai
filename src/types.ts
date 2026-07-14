@@ -56,7 +56,7 @@ export interface AnalyticsData {
   }>;
 }
 
-export type ActiveTab = "chat" | "discover" | "analytics" | "settings";
+export type ActiveTab = "chat" | "discover" | "analytics" | "settings" | "devconsole";
 
 export interface Language {
   code: string;

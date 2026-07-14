@@ -638,6 +638,90 @@ app.post("/api/feedback", authenticate, (req, res) => {
   res.json({ message: "Feedback submitted successfully.", session });
 });
 
+// DEVCONSOLE API DIAGNOSE
+app.post("/api/diagnose", authenticate, async (req, res) => {
+  const { code, errorText, language } = req.body;
+  
+  if (!code || !errorText) {
+    return res.status(400).json({ error: "Code and errorText are required." });
+  }
+
+  const aiClient = getGeminiClient();
+  if (aiClient) {
+    try {
+      const prompt = `
+You are an expert developer assistant. The user has encountered an error in their ${language || "code"}.
+Code:
+\`\`\`
+${code}
+\`\`\`
+
+Error:
+${errorText}
+
+Provide a JSON response with the following strictly formatted keys:
+- "rootCause": A plain-language explanation of why this error happened.
+- "conceptTag": A short tag (1-3 words) identifying the underlying concept (e.g. "off-by-one", "null-reference").
+- "fix": The corrected code block only.
+- "whyItWorks": A 1-sentence explanation of why the fix resolves the issue.
+- "confidence": Either "high", "medium", or "low" based on how certain you are about the fix.
+- "quiz": An object containing a short quiz to test understanding, with:
+    - "question": A short question testing the concept.
+    - "options": An array of 3-4 string options.
+    - "answer": The exact string of the correct option.
+
+Return ONLY a valid JSON object. Do not include markdown \`\`\`json wrappers.
+`;
+      const result = await aiClient.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt
+      });
+
+      const text = result.text || "";
+      let parsed = {};
+      try {
+        const cleanText = text.replace(/^```json\s*/, "").replace(/```$/, "").trim();
+        parsed = JSON.parse(cleanText);
+      } catch (e) {
+        console.error("Failed to parse Gemini output:", text);
+        // Fallback
+        parsed = {
+          rootCause: "Unable to parse AI response. " + text,
+          conceptTag: "parse-error",
+          fix: code,
+          whyItWorks: "AI encountered a parsing error.",
+          confidence: "low",
+          quiz: { question: "What happened?", options: ["Parse error", "Success"], answer: "Parse error" }
+        };
+      }
+      
+      return res.json(parsed);
+    } catch (err) {
+      console.error("Gemini API error during diagnose:", err);
+      // Fallback below if error
+    }
+  }
+
+  // Fallback if AI not available or errored
+  return res.json({
+    rootCause: "This is a simulated diagnosis. The variable was not defined before usage.",
+    conceptTag: "ReferenceError",
+    fix: "let x = 10;\nconsole.log(x);",
+    whyItWorks: "Declaring the variable ensures it is allocated in memory before it is referenced.",
+    confidence: "high",
+    quiz: {
+      question: "Why do we declare variables before using them?",
+      options: [
+        "To avoid ReferenceErrors",
+        "To make code look good",
+        "To satisfy the compiler"
+      ],
+      answer: "To avoid ReferenceErrors"
+    }
+  });
+});
+
+
 // ANALYTICS & METRICS DASHBOARD
 app.get("/api/analytics", authenticate, (req, res) => {
   const db = loadDB();

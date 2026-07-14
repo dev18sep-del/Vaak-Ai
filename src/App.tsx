@@ -5,6 +5,7 @@ import ChatView from "./components/ChatView";
 import DiscoverView from "./components/DiscoverView";
 import AnalyticsView from "./components/AnalyticsView";
 import SettingsView from "./components/SettingsView";
+import DevConsoleView from "./components/DevConsoleView";
 import { ActiveTab, ChatSession, User } from "./types";
 import { Sparkles, MessageSquare, ShieldAlert, Cpu, ChevronRight, MessageSquarePlus } from "lucide-react";
 
@@ -235,6 +236,14 @@ export default function App() {
             isDark={isDark}
             setIsDark={setIsDark}
             language={language}
+          />
+        )}
+
+        {activeTab === "devconsole" && (
+          <DevConsoleView
+            token={token}
+            isDark={isDark}
+            user={user}
           />
         )}
 

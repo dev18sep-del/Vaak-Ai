@@ -1,5 +1,5 @@
 import React from "react";
-import { MessageSquarePlus, Compass, BarChart3, Settings, Moon, Sun, LogOut, ShieldAlert, Sparkles, ChevronLeft } from "lucide-react";
+import { MessageSquarePlus, Compass, BarChart3, Settings, Moon, Sun, LogOut, ShieldAlert, Sparkles, ChevronLeft, Cpu } from "lucide-react";
 import { VaakaiLogo } from "./VaakaiLogo";
 import { ActiveTab, ChatSession, Language, SUPPORTED_LANGUAGES, User } from "../types";
 
@@ -172,6 +172,19 @@ export default function Sidebar({
           >
             <Settings className="w-4 h-4" />
             <span>System Settings</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("devconsole")}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition cursor-pointer ${
+              activeTab === "devconsole" 
+                ? "bg-indigo-600/10 text-indigo-400 border border-indigo-500/30 shadow-sm shadow-indigo-500/5" 
+                : `${isDark ? "hover:bg-slate-800/50" : "hover:bg-slate-100"} text-slate-400 border border-transparent`
+            }`}
+            id="tab-btn-devconsole"
+          >
+            <Cpu className="w-4 h-4" />
+            <span>Dev Console</span>
           </button>
         </div>
 
