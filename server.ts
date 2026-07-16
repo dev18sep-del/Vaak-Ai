@@ -3,6 +3,12 @@ import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 import Groq from "groq-sdk";
 import { createServer as createViteServer } from "vite";
+import { initializeApp } from "firebase/app";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import firebaseConfig from "./firebase-applet-config.json" with { type: "json" };
+const fbApp = initializeApp(firebaseConfig);
+const firestoreDb = getFirestore(fbApp, firebaseConfig.firestoreDatabaseId);
+
 import pathNode from "path";
 
 // Initialize express app
@@ -154,27 +160,38 @@ const initialDB: DB = {
 };
 
 // Simple file-based database helper
-function loadDB(): DB {
+
+async function loadDB(): Promise<DB> {
   try {
-    if (fs.existsSync(DB_FILE)) {
-      const data = fs.readFileSync(DB_FILE, "utf-8");
-      return JSON.parse(data);
+    const snap = await getDoc(doc(firestoreDb, "app_state", "db"));
+    if (snap.exists()) {
+      return snap.data() as DB;
     }
   } catch (error) {
-    console.error("Error reading db file, returning fallback state", error);
+    console.error("Error reading db from Firestore", error);
   }
-  // If file doesn't exist, create it with pre-seeded data
-  saveDB(initialDB);
+  // Initialize if empty
+  await await saveDB(initialDB);
   return initialDB;
 }
 
-function saveDB(data: DB): void {
+async function saveDB(data: DB): Promise<void> {
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+    // Strip dataUrls to prevent 1MB limit errors
+    const cleaned = JSON.parse(JSON.stringify(data));
+    for (const session of cleaned.sessions || []) {
+      for (const msg of session.messages || []) {
+        if (msg.attachment && msg.attachment.dataUrl) {
+          msg.attachment.dataUrl = undefined;
+        }
+      }
+    }
+    await setDoc(doc(firestoreDb, "app_state", "db"), cleaned);
   } catch (error) {
-    console.error("Error writing db file", error);
+    console.error("Error writing db to Firestore", error);
   }
 }
+
 
 // Server in-memory active user sessions store (token -> userId)
 const activeSessions: Record<string, string> = {};
@@ -210,7 +227,7 @@ function getGroqClient(): Groq | null {
 }
 
 // Helper to authenticate requests using header
-function authenticate(req: express.Request, res: express.Response, next: express.NextFunction) {
+async function authenticate(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Unauthorized. Missing token." });
@@ -220,7 +237,7 @@ function authenticate(req: express.Request, res: express.Response, next: express
   if (!userId) {
     return res.status(401).json({ error: "Invalid or expired session token." });
   }
-  const db = loadDB();
+  const db = await loadDB();
   const user = db.users.find(u => u.id === userId);
   if (!user) {
     return res.status(401).json({ error: "User associated with this token not found." });
@@ -238,13 +255,13 @@ app.get("/api/health", (req, res) => {
 // Auth Routes
 
 // REGISTER
-app.post("/api/auth/register", (req, res) => {
+app.post("/api/auth/register", async (req, res) => {
   const { name, email, password } = req.body;
   if (!name || !email || !password) {
     return res.status(400).json({ error: "All fields (name, email, password) are required." });
   }
 
-  const db = loadDB();
+  const db = await loadDB();
   if (db.users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
     return res.status(400).json({ error: "Email already registered." });
   }
@@ -259,7 +276,7 @@ app.post("/api/auth/register", (req, res) => {
   };
 
   db.users.push(newUser);
-  saveDB(db);
+  await saveDB(db);
 
   res.status(201).json({
     message: "Registration successful. Setup 2FA credentials.",
@@ -268,13 +285,13 @@ app.post("/api/auth/register", (req, res) => {
 });
 
 // LOGIN (Step 1: Credentials verify, trigger OTP code)
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required." });
   }
 
-  const db = loadDB();
+  const db = await loadDB();
   const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.passwordHash === password);
   if (!user) {
     return res.status(401).json({ error: "Invalid email or password." });
@@ -285,7 +302,7 @@ app.post("/api/auth/login", (req, res) => {
   
   // Save OTP in the user record temporarily
   user.otpPendingCode = otpCode;
-  saveDB(db);
+  await saveDB(db);
 
   res.json({
     message: "Credentials verified. 2-Step Verification code requested.",
@@ -297,13 +314,13 @@ app.post("/api/auth/login", (req, res) => {
 });
 
 // VERIFY 2FA (Step 2: Submit 2-Step OTP to generate active session token)
-app.post("/api/auth/verify-2fa", (req, res) => {
+app.post("/api/auth/verify-2fa", async (req, res) => {
   const { email, code } = req.body;
   if (!email || !code) {
     return res.status(400).json({ error: "Email and 2-step verification code are required." });
   }
 
-  const db = loadDB();
+  const db = await loadDB();
   const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (!user) {
     return res.status(404).json({ error: "User not found." });
@@ -318,7 +335,7 @@ app.post("/api/auth/verify-2fa", (req, res) => {
   activeSessions[sessionToken] = user.id;
 
   user.otpPendingCode = undefined; // clear
-  saveDB(db);
+  await saveDB(db);
 
   res.json({
     message: "2-Step verification successful. Access granted.",
@@ -328,14 +345,14 @@ app.post("/api/auth/verify-2fa", (req, res) => {
 });
 
 // SOCIAL LOGIN (Using Real OAuth Data)
-app.post("/api/auth/social-login", (req, res) => {
+app.post("/api/auth/social-login", async (req, res) => {
   const { provider, email, name, uid } = req.body;
   
   if (!provider || !email) {
     return res.status(400).json({ error: "Provider and email are required." });
   }
 
-  const db = loadDB();
+  const db = await loadDB();
   let user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
   
   if (!user) {
@@ -349,7 +366,7 @@ app.post("/api/auth/social-login", (req, res) => {
       createdAt: new Date().toISOString()
     };
     db.users.push(user);
-    saveDB(db);
+    await saveDB(db);
   }
 
   const sessionToken = "session-" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -363,7 +380,7 @@ app.post("/api/auth/social-login", (req, res) => {
 });
 
 // LOGOUT
-app.post("/api/auth/logout", authenticate, (req, res) => {
+app.post("/api/auth/logout", authenticate, async (req, res) => {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
@@ -373,7 +390,7 @@ app.post("/api/auth/logout", authenticate, (req, res) => {
 });
 
 // SESSION CHECK
-app.get("/api/session", authenticate, (req, res) => {
+app.get("/api/session", authenticate, async (req, res) => {
   const user = (req as any).user;
   res.json({ id: user.id, name: user.name, email: user.email });
 });
@@ -386,7 +403,7 @@ app.post("/api/chat", authenticate, async (req, res) => {
   }
 
   const user = (req as any).user;
-  const db = loadDB();
+  const db = await loadDB();
   const currentLang = language || "en";
 
   // Find or create active support session
@@ -427,7 +444,7 @@ CRITICAL INSTRUCTIONS FOR ANSWER FORMATTING:
 - Provide comprehensive, detailed, and highly structured responses.
 - Always use Markdown formatting to organize your answers (e.g., headers like ###, bold text for emphasis).
 - Break down complex answers into clear, logical steps or bulleted lists.
-- Include a brief, polite introduction acknowledging the user's issue, a detailed body with the solution, and a courteous conclusion offering further assistance.
+- DO NOT include ANY conversational introductions, greetings, or repetitive opening paragraphs (e.g. "Hello", "Thank you for reaching out", "I must reiterate that..."). Jump straight to the core technical answer and keep the tone courteous but extremely concise.
 - Ensure the tone is highly professional, empathetic, and designed to fully satisfy the user's needs.
 - Provide actionable advice, examples (e.g., code snippets if technical), and thorough explanations.`;
 
@@ -554,7 +571,7 @@ ${textContent}
   };
   session.messages.push(modelMsg);
 
-  saveDB(db);
+  await saveDB(db);
 
   res.json({
     sessionId: session.id,
@@ -604,7 +621,7 @@ function getFallbackSupportResponse(query: string, lang: string): string {
     return "I am Vaakai, the intelligent virtual support agent for Vaakai. My name represents triumph and achievement. I assist clients in verifying invoice details, configuring production environments, handling Node.js API secrets, and logging CSAT ratings.";
   }
   if (q.includes("invoice") || q.includes("billing") || q.includes("charge") || q.includes("price") || q.includes("payment")) {
-    return "Hi, I am Vaakai. I checked your billing records. Overage charges are usually applied when storage exceeds the base tier limit or premium AI tokens run over budget. I can look into your exact invoice if you share the number, or we can look into waiving temporary storage fees.";
+    return "I checked your billing records. Overage charges are usually applied when storage exceeds the base tier limit or premium AI tokens run over budget. I can look into your exact invoice if you share the number, or we can look into waiving temporary storage fees.";
   }
   if (q.includes("technical") || q.includes("api") || q.includes("error") || q.includes("code") || q.includes("secret") || q.includes("env")) {
     return "Understood. For scalable production setups in Node.js, we highly recommend using standard environment variables (e.g., process.env.GEMINI_API_KEY) on the server, keeping credentials out of public browser repositories, and wrapping connections in try-catch structures. Let me know if you are debugging a specific stack trace!";
@@ -613,27 +630,27 @@ function getFallbackSupportResponse(query: string, lang: string): string {
     return "Our portal utilizes a secure Two-Factor Authentication (2FA) verification mechanism via standard TOTP secret keys. You can configure and view your 2FA OTP codes on your settings and authentication panels to ensure complete privacy of your transmissions.";
   }
   if (q.includes("hello") || q.includes("hi") || q.includes("hey")) {
-    return "Hello! I am Vaakai, your customer support AI. How can I help you today with your technical setup, billing questions, or account details?";
+    return "Hello! How can I help you today with your technical setup, billing questions, or account details?";
   }
-  return `Hello! I am Vaakai, your customer support AI. I have processed your query: "${query}". How can I help you today with your technical setup, billing questions, or account details?`;
+  return `I have processed your query: "${query}". How can I help you today with your technical setup, billing questions, or account details?`;
 }
 
 // GET ACTIVE SESSIONS
-app.get("/api/chat/history", authenticate, (req, res) => {
+app.get("/api/chat/history", authenticate, async (req, res) => {
   const user = (req as any).user;
-  const db = loadDB();
+  const db = await loadDB();
   const userSessions = db.sessions.filter(s => s.userId === user.id);
   res.json(userSessions);
 });
 
 // SUBMIT FEEDBACK
-app.post("/api/feedback", authenticate, (req, res) => {
+app.post("/api/feedback", authenticate, async (req, res) => {
   const { sessionId, rating, comment, category } = req.body;
   if (!sessionId || !rating || !category) {
     return res.status(400).json({ error: "SessionId, Rating, and Category are required." });
   }
 
-  const db = loadDB();
+  const db = await loadDB();
   const session = db.sessions.find(s => s.id === sessionId);
   if (!session) {
     return res.status(404).json({ error: "Chat session not found." });
@@ -647,7 +664,7 @@ app.post("/api/feedback", authenticate, (req, res) => {
   };
 
   session.feedback = newFeedback;
-  saveDB(db);
+  await saveDB(db);
 
   res.json({ message: "Feedback submitted successfully.", session });
 });
@@ -754,8 +771,8 @@ Return ONLY a valid JSON object. Do not include markdown \`\`\`json wrappers.
   });
 });
 // ANALYTICS & METRICS DASHBOARD
-app.get("/api/analytics", authenticate, (req, res) => {
-  const db = loadDB();
+app.get("/api/analytics", authenticate, async (req, res) => {
+  const db = await loadDB();
   const sessions = db.sessions;
 
   // Compute key support metrics

@@ -11,6 +11,7 @@ interface AuthPageProps {
 
 export default function AuthPage({ onLoginSuccess, isDark }: AuthPageProps) {
   const [isRegister, setIsRegister] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("alex@company.com"); // Prepopulate default credentials for quick-access convenience
   const [password, setPassword] = useState("password123");
@@ -237,6 +238,7 @@ export default function AuthPage({ onLoginSuccess, isDark }: AuthPageProps) {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onFocus={() => { if(email === "alex@company.com" && password === "password123") { setEmail(""); setPassword(""); } }}
                       placeholder="alex@company.com"
                       className={`w-full pl-10 pr-4 py-2.5 rounded-lg text-sm border focus:outline-none focus:ring-1 transition-all ${
                         isDark 
@@ -250,9 +252,20 @@ export default function AuthPage({ onLoginSuccess, isDark }: AuthPageProps) {
                 </div>
 
                 <div>
-                  <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                    Password
-                  </label>
+                  
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                      Password
+                    </label>
+                    <button 
+                      type="button" 
+                      onClick={() => { setIsForgotPassword(true); setError(""); setMessage(""); }} 
+                      className="text-xs font-semibold text-indigo-500 hover:text-indigo-400 cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+
                   <div className="relative">
                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
