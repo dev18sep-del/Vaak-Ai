@@ -1,4 +1,7 @@
-# 🛡️ Vaakai — Secure AI-Powered Customer Support Hub
+<div align="center">
+  <img src="public/logo.svg" alt="Vaakai Logo" width="120" />
+  <h1>Vaakai — Secure AI-Powered Customer Support Hub</h1>
+</div>
 
 Vaakai is a modern, enterprise-ready, real-time AI customer support platform. Powered by Google Gemini AI, a robust Express backend, and a highly polished React + Tailwind CSS client, Vaakai delivers smart, multi-lingual answers to common customer questions regarding billing, technical configs, and service plans.
 
@@ -32,6 +35,8 @@ To ensure top-tier enterprise compliance, Vaakai includes a complete, custom **2
 │       ├── ChatView.tsx    # Immersive messaging window with custom Markdown formatter
 │       ├── AnalyticsView.tsx # Interactive support metrics dashboard
 │       └── SettingsView.tsx # Profile updates & container environment credentials
+├── public/                 
+│   └── logo.svg            # Vaakai Logo
 ├── .env.example            # Template for required environment variables
 ├── .gitignore              # Outlines files excluded from Git tracking
 ├── package.json            # Scripts, dependency libraries, and metadata
@@ -45,26 +50,33 @@ To ensure top-tier enterprise compliance, Vaakai includes a complete, custom **2
 Follow these steps to run the Vaakai chatbot on your local machine:
 
 ### 1. Prerequisites
+
 - **Node.js** (v18.0.0 or higher recommended)
 - **npm** (v9.0.0 or higher)
 
 ### 2. Clone the Repository
+
 ```bash
 git clone https://github.com/<your-username>/vaakai-chatbot.git
 cd vaakai-chatbot
 ```
 
 ### 3. Install Dependencies
+
 ```bash
 npm install
 ```
 
 ### 4. Configure Environment Variables
+
 Copy `.env.example` to a new file named `.env` and provide your Google Gemini API key:
+
 ```bash
 cp .env.example .env
 ```
+
 Inside your `.env` file:
+
 ```env
 # Google Gemini API Key (get yours at https://aistudio.google.com/)
 GEMINI_API_KEY="your_actual_gemini_api_key_here"
@@ -74,9 +86,11 @@ APP_URL="http://localhost:3000"
 ```
 
 ### 5. Start the Development Server
+
 ```bash
 npm run dev
 ```
+
 Once the dev server is live, open your browser and navigate to:
 **[http://localhost:3000](http://localhost:3000)**
 
@@ -113,6 +127,7 @@ The server exposes a fully documented, REST-compliant API under `/api/*`:
 ## 🤝 Contributing
 
 We welcome community contributions to make Vaakai even more secure and robust!
+
 1. Fork this repository.
 2. Create a new branch: `git checkout -b feature-my-improvement`.
 3. Commit your changes: `git commit -m "feat: add beautiful theme variants"`.
