@@ -457,7 +457,63 @@ CRITICAL INSTRUCTIONS FOR ANSWER FORMATTING (Follow the Ideal Chatbot Response F
   const groq = getGroqClient();
   const gemini = getGeminiClient();
 
-  if (groq) {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  // Prefer Gemini if available, fallback to Groq, then offline fallback
+  if (gemini) {
+    try {
+      const formattedContents = session.messages.map(m => {
+        const parts: any[] = [];
+        if (m.attachment && m.attachment.dataUrl) {
+          const commaIdx = m.attachment.dataUrl.indexOf(",");
+          const base64Data = commaIdx > -1 ? m.attachment.dataUrl.substring(commaIdx + 1) : m.attachment.dataUrl;
+          if (m.attachment.type.startsWith("image/") || m.attachment.type === "application/pdf") {
+            parts.push({
+              inlineData: {
+                mimeType: m.attachment.type,
+                data: base64Data
+              }
+            });
+          } else if (m.attachment.type.startsWith("text/") || m.attachment.type.includes("json")) {
+            try {
+              const textContent = Buffer.from(base64Data, "base64").toString("utf8");
+              parts.push({ text: `[Attached Document: ${m.attachment.name}]\n${textContent}\n[End of Document]` });
+            } catch (e) {
+              parts.push({ text: `[Attached Document: ${m.attachment.name} (binary contents)]` });
+            }
+          } else {
+            parts.push({ text: `[Attached File: ${m.attachment.name} (${m.attachment.type})]` });
+          }
+        }
+        parts.push({ text: m.text });
+        return {
+          role: m.role,
+          parts: parts
+        };
+      });
+
+      const stream = await gemini.models.generateContentStream({
+        model: "gemini-3.5-flash",
+        contents: formattedContents,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+        }
+      });
+      
+      for await (const chunk of stream) {
+        const textChunk = (chunk as any).text || "";
+        responseText += textChunk;
+        res.write(`data: ${JSON.stringify({ text: textChunk })}\n\n`);
+      }
+    } catch (apiError: any) {
+      console.log("Gemini streaming failed:", apiError);
+    }
+  } 
+
+  if (!responseText && groq) {
     try {
       const messages = [];
       messages.push({ role: "system", content: systemInstruction });
@@ -496,76 +552,27 @@ CRITICAL INSTRUCTIONS FOR ANSWER FORMATTING (Follow the Ideal Chatbot Response F
 
       const model = hasImage ? "llama-3.2-90b-vision-preview" : "llama-3.1-8b-instant";
       
-      const completion = await groq.chat.completions.create({
-        messages: messages,
+      const stream = await groq.chat.completions.create({
+        messages: messages as any,
         model: model,
         temperature: 0.7,
+        stream: true,
       });
 
-      responseText = completion.choices[0]?.message?.content || "I apologize, I could not generate a response.";
+      for await (const chunk of stream) {
+        const textChunk = chunk.choices[0]?.delta?.content || "";
+        responseText += textChunk;
+        res.write(`data: ${JSON.stringify({ text: textChunk })}\n\n`);
+      }
     } catch (groqError) {
       console.error("Groq API error:", groqError);
-      // Fallback to offline if Groq fails and Gemini isn't available
-      if (!gemini) {
-        responseText = getFallbackSupportResponse(message || "", currentLang);
-      }
-    }
-  }
-
-  // If Groq wasn't used or failed, and Gemini is available, fallback to Gemini
-  if (!responseText && gemini) {
-    try {
-      const formattedContents = session.messages.map(m => {
-        const parts: any[] = [];
-        if (m.attachment && m.attachment.dataUrl) {
-          const commaIdx = m.attachment.dataUrl.indexOf(",");
-          const base64Data = commaIdx > -1 ? m.attachment.dataUrl.substring(commaIdx + 1) : m.attachment.dataUrl;
-          if (m.attachment.type.startsWith("image/") || m.attachment.type === "application/pdf") {
-            parts.push({
-              inlineData: {
-                mimeType: m.attachment.type,
-                data: base64Data
-              }
-            });
-          } else if (m.attachment.type.startsWith("text/") || m.attachment.type.includes("json")) {
-            try {
-              const textContent = Buffer.from(base64Data, "base64").toString("utf8");
-              parts.push({ text: `[Attached Document: ${m.attachment.name}]
-${textContent}
-[End of Document]` });
-            } catch (e) {
-              parts.push({ text: `[Attached Document: ${m.attachment.name} (binary contents)]` });
-            }
-          } else {
-            parts.push({ text: `[Attached File: ${m.attachment.name} (${m.attachment.type})]` });
-          }
-        }
-        parts.push({ text: m.text });
-        return {
-          role: m.role,
-          parts: parts
-        };
-      });
-
-      const apiResponse = await gemini.models.generateContent({
-        model: "gemini-3.1-flash-lite",
-        contents: formattedContents,
-        config: {
-          systemInstruction,
-          temperature: 0.7,
-        }
-      });
-      responseText = apiResponse?.text || "I apologize, I processed your query but could not extract a message. Let me review that for you.";
-    } catch (apiError: any) {
-      console.log("Both Groq and Gemini failed. Switched to localized assistant mode for chat processing.", apiError);
-      responseText = getFallbackSupportResponse(message || "", currentLang);
     }
   }
 
   if (!responseText) {
     responseText = getFallbackSupportResponse(message || "", currentLang);
+    res.write(`data: ${JSON.stringify({ text: responseText })}\n\n`);
   }
-
 
   const modelMsg: Message = {
     role: "model",
@@ -576,11 +583,8 @@ ${textContent}
 
   await saveDB(db);
 
-  res.json({
-    sessionId: session.id,
-    response: responseText,
-    messages: session.messages
-  });
+  res.write(`data: ${JSON.stringify({ done: true, session })}\n\n`);
+  res.end();
 });
 
 // Dynamic deterministic replies for fallback or offline testing
