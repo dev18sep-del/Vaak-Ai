@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Send, Upload, Share, Bookmark, MoreVertical, Paperclip, Mic, Lightbulb, Globe, Code, Plus, MessageSquare } from "lucide-react";
-import { ChatSession, Message, User } from "../types";
+import { ChatSession, Message, User, Attachment } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
 
 export interface ChatViewProps {
@@ -16,7 +16,78 @@ export default function ChatView({ token, activeSession, onSessionUpdated, langu
   const [inputText, setInputText] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [recognitionInstance, setRecognitionInstance] = useState<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAttachment({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: event.target?.result as string,
+      });
+    };
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleMicClick = () => {
+    const win = window as any;
+    const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser.");
+      return;
+    }
+    
+    if (isListening && recognitionInstance) {
+      recognitionInstance.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = language || "en-US";
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    
+    setRecognitionInstance(recognition);
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event: any) => {
+      let finalTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        }
+      }
+      if (finalTranscript) {
+        setInputText((prev) => prev ? prev + " " + finalTranscript : finalTranscript);
+      }
+    };
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+    };
+    recognition.onend = () => setIsListening(false);
+    
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error("Failed to start speech recognition", e);
+      setIsListening(false);
+    }
+  };
   
   // Set messages based on active session
   useEffect(() => {
@@ -35,17 +106,19 @@ export default function ChatView({ token, activeSession, onSessionUpdated, langu
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim() || loading) return;
+    if ((!inputText.trim() && !attachment) || loading) return;
 
     const userMessage: Message = {
       role: "user",
       text: inputText,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      ...(attachment ? { attachment } : {})
     };
 
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInputText("");
+    setAttachment(null);
     setLoading(true);
 
     try {
@@ -54,7 +127,8 @@ export default function ChatView({ token, activeSession, onSessionUpdated, langu
       const payload: any = {
         message: userMessage.text,
         language,
-        sessionId: activeSession?.id
+        sessionId: activeSession?.id,
+        ...(attachment ? { attachment } : {})
       };
 
       const res = await fetch(endpoint, {
@@ -178,12 +252,24 @@ export default function ChatView({ token, activeSession, onSessionUpdated, langu
                      <div className="w-full h-full bg-black flex items-center justify-center text-white text-xs font-bold">V</div>
                   )}
                 </div>
-                <div className={`px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed ${
+                <div className={`px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed flex flex-col gap-2 ${
                   msg.role === 'user' 
                     ? 'bg-white text-slate-800 shadow-sm border border-slate-100/50 rounded-tr-none' 
                     : 'bg-transparent text-slate-800'
                 }`}>
-                  <MarkdownRenderer text={msg.text} isUser={msg.role === "user"} />
+                  {msg.attachment && msg.attachment.dataUrl && (
+                    <div className="mb-2">
+                      {msg.attachment.type.startsWith("image/") ? (
+                        <img src={msg.attachment.dataUrl} alt={msg.attachment.name} className="max-w-[200px] rounded-lg border border-slate-200" />
+                      ) : (
+                        <div className="flex items-center gap-2 p-2 bg-slate-100 rounded-lg border border-slate-200 text-xs">
+                          <Paperclip className="w-4 h-4 text-slate-500" />
+                          <span className="truncate max-w-[150px] font-medium text-slate-700">{msg.attachment.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {msg.text && <MarkdownRenderer text={msg.text} isUser={msg.role === "user"} />}
                 </div>
               </div>
             </div>
@@ -220,11 +306,51 @@ export default function ChatView({ token, activeSession, onSessionUpdated, langu
             </button>
           </div>
 
+          {attachment && (
+            <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200/60 shadow-sm">
+              <div className="flex items-center gap-3">
+                {attachment.type.startsWith("image/") ? (
+                  <img src={attachment.dataUrl} alt={attachment.name} className="w-10 h-10 object-cover rounded-md border border-slate-200" />
+                ) : (
+                  <div className="w-10 h-10 bg-slate-100 rounded-md flex items-center justify-center border border-slate-200">
+                    <Paperclip className="w-5 h-5 text-slate-500" />
+                  </div>
+                )}
+                <div>
+                  <div className="text-sm font-medium text-slate-700 truncate max-w-[200px]">{attachment.name}</div>
+                  <div className="text-xs text-slate-500">{(attachment.size / 1024).toFixed(1)} KB</div>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setAttachment(null)}
+                className="text-slate-400 hover:text-red-500 transition-colors p-1"
+              >
+                <Plus className="w-5 h-5 rotate-45" />
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleSendMessage} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-2 flex items-center gap-2">
-            <button type="button" className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition">
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileChange} 
+              className="hidden" 
+              accept="image/*,.pdf,.txt,.json,.csv"
+            />
+            <button 
+              type="button" 
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition"
+            >
               <Paperclip className="w-5 h-5" />
             </button>
-            <button type="button" className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition">
+            <button 
+              type="button" 
+              onClick={handleMicClick}
+              className={`p-2 rounded-xl transition ${isListening ? 'text-red-500 bg-red-50 animate-pulse' : 'text-slate-400 hover:bg-slate-100'}`}
+            >
               <Mic className="w-5 h-5" />
             </button>
             <input
@@ -237,7 +363,7 @@ export default function ChatView({ token, activeSession, onSessionUpdated, langu
             />
             <button 
               type="submit"
-              disabled={!inputText.trim() || loading}
+              disabled={(!inputText.trim() && !attachment) || loading}
               className="p-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-500/20"
             >
               <Send className="w-5 h-5 ml-0.5" />

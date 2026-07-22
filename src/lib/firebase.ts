@@ -1,12 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import firebaseConfig from "../../firebase-applet-config.json";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { firebaseConfig } from "../firebase-config";
 
-let auth: ReturnType<typeof getAuth> | null = null;
-
-if (firebaseConfig.apiKey) {
-  const app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-}
-
-export { auth };
+export const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();

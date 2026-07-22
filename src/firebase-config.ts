@@ -1,4 +1,4 @@
-{
+export const firebaseConfig = {
   "projectId": "caramel-song-q5jvd",
   "appId": "1:554040064829:web:42357de91d577ff3b52354",
   "apiKey": "AIzaSyAxKxbwA6Ai3XYC7o5keWxV8wgMxY2Iyz8",
@@ -9,4 +9,4 @@
   "measurementId": "",
   "oAuthClientId": "554040064829-ivsngmg2ohik24bjaksjgaht4vdb2q20.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
-}
+};

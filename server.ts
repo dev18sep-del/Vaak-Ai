@@ -6,8 +6,17 @@ import { createServer as createViteServer } from "vite";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 import firebaseConfig from "./firebase-applet-config.json" with { type: "json" };
+import { initializeApp as initializeAdminApp, getApps } from "firebase-admin/app";
+import { getAuth as getAdminAuth } from "firebase-admin/auth";
+
 const fbApp = initializeApp(firebaseConfig);
 const firestoreDb = getFirestore(fbApp, firebaseConfig.firestoreDatabaseId);
+
+if (!getApps().length) {
+  initializeAdminApp({
+    projectId: firebaseConfig.projectId
+  });
+}
 
 import pathNode from "path";
 
@@ -233,18 +242,31 @@ async function authenticate(req: express.Request, res: express.Response, next: e
     return res.status(401).json({ error: "Unauthorized. Missing token." });
   }
   const token = authHeader.substring(7);
-  const userId = activeSessions[token];
-  if (!userId) {
+  try {
+    const decodedToken = await getAdminAuth().verifyIdToken(token);
+    const db = await loadDB();
+    
+    // Check if user exists in our DB, if not add them
+    let user = db.users.find(u => u.id === decodedToken.uid);
+    if (!user) {
+      user = {
+        id: decodedToken.uid,
+        name: decodedToken.name || decodedToken.email?.split("@")[0] || "User",
+        email: decodedToken.email || "",
+        passwordHash: "",
+        otpSecret: "",
+        createdAt: new Date().toISOString()
+      };
+      db.users.push(user);
+      await saveDB(db);
+    }
+    
+    // Attach user object to request
+    (req as any).user = user;
+    next();
+  } catch (err) {
     return res.status(401).json({ error: "Invalid or expired session token." });
   }
-  const db = await loadDB();
-  const user = db.users.find(u => u.id === userId);
-  if (!user) {
-    return res.status(401).json({ error: "User associated with this token not found." });
-  }
-  // Attach user object to request
-  (req as any).user = user;
-  next();
 }
 
 // API Health Check
@@ -495,7 +517,7 @@ CRITICAL INSTRUCTIONS FOR ANSWER FORMATTING (Follow the Ideal Chatbot Response F
       });
 
       const stream = await gemini.models.generateContentStream({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.6-flash",
         contents: formattedContents,
         config: {
           systemInstruction,

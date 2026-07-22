@@ -1,18 +1,19 @@
 <div align="center">
   <img src="public/logo.svg" alt="Vaakai Logo" width="120" />
   <h1>Vaakai — Secure AI-Powered Customer Support Hub</h1>
+  <p><strong><a href="https://ais-pre-cpvqqjpnpgcj7lmdqj3hho-52605201443.asia-southeast1.run.app" target="_blank">Live Demo 🚀</a></strong></p>
 </div>
 
 Vaakai is a modern, enterprise-ready, real-time AI customer support platform. Powered by Google Gemini AI, a robust Express backend, and a highly polished React + Tailwind CSS client, Vaakai delivers smart, multi-lingual answers to common customer questions regarding billing, technical configs, and service plans.
 
-To ensure top-tier enterprise compliance, Vaakai includes a complete, custom **2-Factor Authentication (2FA)** identity verification flow, real-time analytics for support managers, a feedback/CSAT feedback loop, dynamic language swapping, and a collapsing navigation layout designed for maximal workspace efficiency.
+To ensure top-tier enterprise compliance, Vaakai integrates robust **Firebase Authentication**, real-time analytics for support managers, a feedback/CSAT feedback loop, dynamic language swapping, and a collapsing navigation layout designed for maximal workspace efficiency.
 
 ---
 
 ## ✨ Key Features
 
 - **🧠 Google Gemini Integration**: Leverages the official `@google/genai` SDK and `gemini-3.5-flash` model for intelligent, context-aware customer query responses.
-- **🔐 Secure 2FA Identity Verification**: A multi-step authentication process requiring password validation followed by standard 2-step verification (using temporary one-time passwords).
+- **🔐 Firebase Authentication**: Secure, reliable user management powered by Firebase, supporting email/password and social login (Google/Apple).
 - **📊 Real-time Support Analytics**: A responsive control panel with performance metrics, feedback score distribution, topic categorization, and a comprehensive ticket log history.
 - **🌍 Dynamic Multi-lingual Support**: Native conversational language switching (English 🇬🇧, Spanish 🇪🇸, Tamil 🇮🇳, etc.) with both automated translating instructions and high-accuracy deterministic fallbacks.
 - **🎨 Premium Responsive UI**: Full dark/light theme options, responsive mobile-first grids, custom-rendered code formatting blocks, and collapsing sidebar navigation to optimize workspace real estate.
@@ -30,7 +31,7 @@ To ensure top-tier enterprise compliance, Vaakai includes a complete, custom **2
 │   ├── index.css           # Global Tailwind CSS imports & custom themes
 │   ├── types.ts            # Shared TypeScript type definitions
 │   └── components/         # Extracted functional React modules
-│       ├── AuthPage.tsx    # Secure multi-step login, registration, and 2FA page
+│       ├── AuthPage.tsx    # Firebase-integrated login, registration, and social auth page
 │       ├── Sidebar.tsx     # Session histories, settings toggle, and collapsing panel
 │       ├── ChatView.tsx    # Immersive messaging window with custom Markdown formatter
 │       ├── AnalyticsView.tsx # Interactive support metrics dashboard
@@ -114,9 +115,9 @@ The server exposes a fully documented, REST-compliant API under `/api/*`:
 
 | Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/register` | Register a new user and generate a unique 2FA secret token. | No |
-| `POST` | `/api/auth/login` | Step 1: Validate password credentials. | No |
-| `POST` | `/api/auth/verify-2fa` | Step 2: Validate the one-time passcode to issue a session token. | No |
+
+
+
 | `POST` | `/api/chat` | Send a support message to Vaakai and receive an AI-powered answer. | Yes (JWT) |
 | `GET` | `/api/chat/history` | Retrieve historical support sessions for the active agent. | Yes (JWT) |
 | `POST` | `/api/feedback` | Log CSAT scores, helpfulness ratings, and qualitative feedback. | Yes (JWT) |

@@ -66,6 +66,10 @@ export default function App() {
         });
       } catch (e) {}
     }
+    try {
+      const { auth } = await import("./lib/firebase");
+      await auth.signOut();
+    } catch (e) {}
     localStorage.removeItem("vaakai_token");
     setToken(null);
     setUser(null);
