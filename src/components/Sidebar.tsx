@@ -2,9 +2,9 @@ import React from "react";
 import { Plus, Search, Grid, Users, Settings, LogOut, ArrowUpRight } from "lucide-react";
 import { VaakaiLogo } from "./VaakaiLogo";
 
-export default function Sidebar({ activeTab, setActiveTab, user, onLogout, onNewSession }: any) {
+export default function Sidebar({ activeTab, setActiveTab, user, onLogout, onNewSession, width = 256 }: any) {
   return (
-    <aside className="w-64 flex flex-col h-full bg-white/20 backdrop-blur-md border-r border-white/40">
+    <aside style={{ width: `${width}px` }} className="shrink-0 flex flex-col h-full bg-white/20 backdrop-blur-md border-r border-white/40">
       <div className="p-6 flex items-center gap-3">
         <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center text-white">
           <VaakaiLogo className="w-5 h-5" />

@@ -2,13 +2,14 @@ import React from "react";
 import { Folder, Trash2 } from "lucide-react";
 import { ChatSession } from "../types";
 
-export default function HistorySidebar({ sessions, activeSessionId, onSelectSession }: {
+export default function HistorySidebar({ sessions, activeSessionId, onSelectSession, width = 288 }: {
   sessions: ChatSession[];
   activeSessionId: string | null;
   onSelectSession: (id: string) => void;
+  width?: number;
 }) {
   return (
-    <aside className="w-72 flex flex-col h-full bg-white/10 backdrop-blur-sm border-l border-white/20 p-6">
+    <aside style={{ width: `${width}px` }} className="shrink-0 flex flex-col h-full bg-white/10 backdrop-blur-sm border-l border-white/20 p-6">
       <h2 className="text-xl font-medium text-slate-800 mb-6">History</h2>
       
       <div className="flex-1 overflow-y-auto space-y-4 pr-2">

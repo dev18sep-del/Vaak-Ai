@@ -3,6 +3,7 @@ import AuthPage from "./components/AuthPage";
 import Sidebar from "./components/Sidebar";
 import ChatView from "./components/ChatView";
 import DiscoverView from "./components/DiscoverView";
+import TemplatesView from "./components/TemplatesView";
 import AnalyticsView from "./components/AnalyticsView";
 import SettingsView from "./components/SettingsView";
 import DevConsoleView from "./components/DevConsoleView";
@@ -17,6 +18,38 @@ export default function App() {
   const [isDark, setIsDark] = useState<boolean>(false);
   const [language, setLanguage] = useState<string>("en");
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(256);
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(288);
+
+  const handleLeftMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = leftSidebarWidth;
+    const handleMouseMove = (e: MouseEvent) => {
+      setLeftSidebarWidth(Math.max(200, Math.min(startWidth + (e.clientX - startX), 400)));
+    };
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const handleRightMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = rightSidebarWidth;
+    const handleMouseMove = (e: MouseEvent) => {
+      setRightSidebarWidth(Math.max(200, Math.min(startWidth - (e.clientX - startX), 400)));
+    };
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [sessionLoading, setSessionLoading] = useState(false);
@@ -109,6 +142,11 @@ export default function App() {
         user={user}
         onLogout={handleLogout}
         onNewSession={handleNewSession}
+        width={leftSidebarWidth}
+      />
+      <div 
+        className="w-1 cursor-col-resize bg-transparent hover:bg-blue-400 transition-colors z-10" 
+        onMouseDown={handleLeftMouseDown}
       />
 
       <main className="flex-1 flex h-full overflow-hidden relative">
@@ -124,6 +162,11 @@ export default function App() {
             />
           )}
           {activeTab === "discover" && <DiscoverView onSelectPrompt={() => {}} isDark={isDark} />}
+          {activeTab === "templates" && <TemplatesView isDark={isDark} onSelectTemplate={(template) => {
+            setActiveTab("chat");
+            handleNewSession();
+            // We would ideally set the initial prompt here or pass it to chat session
+          }} />}
           {activeTab === "analytics" && <AnalyticsView token={token} isDark={isDark} />}
           {activeTab === "settings" && <SettingsView user={user} isDark={isDark} setIsDark={setIsDark} language={language} />}
           {activeTab === "devconsole" && <DevConsoleView token={token} isDark={isDark} user={user} />}
@@ -131,11 +174,18 @@ export default function App() {
       </main>
 
       {activeTab === "chat" && (
-        <HistorySidebar 
-          sessions={sessions} 
-          activeSessionId={activeSessionId} 
-          onSelectSession={setActiveSessionId} 
-        />
+        <>
+          <div 
+            className="w-1 cursor-col-resize bg-transparent hover:bg-blue-400 transition-colors z-10" 
+            onMouseDown={handleRightMouseDown}
+          />
+          <HistorySidebar 
+            sessions={sessions} 
+            activeSessionId={activeSessionId} 
+            onSelectSession={setActiveSessionId} 
+            width={rightSidebarWidth}
+          />
+        </>
       )}
     </div>
   );

@@ -1,3 +1,4 @@
+import { spawn } from "child_process";
 import express from "express";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
@@ -457,19 +458,20 @@ app.post("/api/chat", authenticate, async (req, res) => {
 
   // Setup prompt with context, personality, and instructions
   const systemInstruction = `You are Vaakai, an expert real-time AI customer support representative for Vaakai. 
-"Vaakai" represents triumph and achievement. Your goal is to provide absolute top-tier, supportive, professional, and clear answers.
+"Vaakai" represents triumph and achievement. Your goal is to provide absolute top-tier, highly detailed, comprehensive, supportive, professional, and clear answers.
+Provide elaborate explanations and explore all necessary nuances to fully address the user's inquiry in depth.
 Adapt dynamically to the customer's queries.
 You must always reply in the requested language: "${currentLang}" (e.g., if user speaks Spanish, reply in fluent Spanish, Tamil in Tamil, etc.).
 Support topics include: Bill payments, Technical configuration (using Node.js, environment variables, APIs), Account issues, and Service plans.
 
 CRITICAL INSTRUCTIONS FOR ANSWER FORMATTING (Follow the Ideal Chatbot Response Framework):
 1. The Greeting & Acknowledgment: Start by validating the user's request to show the bot understood the prompt and sets a helpful, conversational tone (e.g., "Hello! I can definitely help you...").
-2. The Direct Answer: Deliver the core information immediately. Do not bury the answer under pleasantries or unnecessary background context.
+2. The Direct Answer: Deliver the core information immediately. Provide deeply detailed explanations and do not skip any relevant background context if it helps understanding.
 3. Structured Details: If the answer requires multiple steps or complex information, break it down visually so it is easy to scan.
    - Use bullet points for lists of features or options.
-   - Use numbered lists for sequential steps or instructions.
+   - Use numbered lists for sequential steps or instructions. Provide in-depth reasoning for each step.
    - Use bold text to highlight critical keywords or numerical data points.
-   - Keep paragraphs to a maximum of two or three concise sentences.
+   - Elaborate thoroughly on each concept to ensure complete understanding.
 4. Actionable Next Steps: Anticipate what the user might need to do after reading the answer. Provide clear directions, resources, or links.
 5. The Conversational Follow-Up: End the response with a single, clear question to guide the user to the next logical step or to ensure their issue was resolved (e.g., "Did this fully answer your question?").`;
 
@@ -516,20 +518,35 @@ CRITICAL INSTRUCTIONS FOR ANSWER FORMATTING (Follow the Ideal Chatbot Response F
         };
       });
 
-      const stream = await gemini.models.generateContentStream({
-        model: "gemini-3.6-flash",
+      const pythonProcess = spawn("python3", ["chatbot.py"]);
+      pythonProcess.stdin.write(JSON.stringify({
         contents: formattedContents,
-        config: {
-          systemInstruction,
-          temperature: 0.7,
-        }
+        systemInstruction: systemInstruction
+      }));
+      pythonProcess.stdin.end();
+
+      const pythonPromise = new Promise<void>((resolve, reject) => {
+        pythonProcess.stdout.on("data", (data) => {
+          const textChunk = data.toString("utf8");
+          responseText += textChunk;
+          res.write(`data: ${JSON.stringify({ text: textChunk })}\n\n`);
+        });
+
+        pythonProcess.stderr.on("data", (data) => {
+          console.error("Python error:", data.toString("utf8"));
+        });
+
+        pythonProcess.on("close", (code) => {
+          resolve();
+        });
+        
+        pythonProcess.on("error", (err) => {
+          console.error("Python failed:", err);
+          resolve();
+        });
       });
-      
-      for await (const chunk of stream) {
-        const textChunk = (chunk as any).text || "";
-        responseText += textChunk;
-        res.write(`data: ${JSON.stringify({ text: textChunk })}\n\n`);
-      }
+
+      await pythonPromise;
     } catch (apiError: any) {
       console.log("Gemini streaming failed:", apiError);
     }
